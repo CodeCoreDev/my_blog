@@ -1,7 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
+module.exports = {
+  images: {
+    domains: [], // Для локальных изображений
+    unoptimized: false,
+  },
 };
-
-export default nextConfig;

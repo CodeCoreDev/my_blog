@@ -4,6 +4,7 @@ import Link from "next/link";
 const navItems = [
   { linkText: "Домой", href: "/" },
   { linkText: "Мои проекты", href: "/my-projects" },
+  { linkText: "Мои статьи", href: "/articles" },
   { linkText: "Загрузки", href: "/downloads" },
   { linkText: "About", href: "/about" },
 ];
