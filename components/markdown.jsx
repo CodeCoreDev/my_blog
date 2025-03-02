@@ -7,7 +7,7 @@ import rehypeRaw from "rehype-raw";
 import Image from "next/image";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import Code from './code';
+import Code from "./code";
 
 const Markdown = ({ content }) => {
   if (!content) {
@@ -42,7 +42,7 @@ const Markdown = ({ content }) => {
         childrenArray[0].type === "img";
 
       if (isImageOnly) {
-        return <figure className="my-4">{children}</figure>;
+        return <figure className="my-4 text-center">{children}</figure>;
       }
 
       return <p className="my-4 leading-relaxed text-gray-100">{children}</p>;
@@ -54,12 +54,11 @@ const Markdown = ({ content }) => {
         alt={alt || ""}
         width={800}
         height={400}
-        className="rounded-lg object-cover"
+        className="rounded-lg inline-block max-w-full h-auto"
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         loading="lazy"
       />
     ),
-
     code: Code,
 
     ul: ({ children }) => (

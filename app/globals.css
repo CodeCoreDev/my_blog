@@ -3,3 +3,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.Prose kbd {
+  background-color: #2a2c36;
+  color: #99C24D;
+  border: 1px solid #3a3c46;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+}

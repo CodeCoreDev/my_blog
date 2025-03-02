@@ -29,7 +29,7 @@ export default async function ArticlesPage() {
           <li key={article.slug} className="mb-2">
             <a
               href={`/articles/${encodeURIComponent(article.slug)}`}
-              className="text-blue-500 hover:underline"
+              className="text-white-500 hover:underline"
             >
               {article.title} ({article.date})
             </a>
