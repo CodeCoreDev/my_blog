@@ -81,8 +81,8 @@ const Code = ({ inline, className, children }) => {
           PreTag="div"
           wrapLongLines={true}
           customStyle={{
-            padding: "3rem",
-            backgroundColor: "#282c34", // Цвет фона
+            padding: "1rem",
+            backgroundColor: "#171717", // Цвет фона
             color: "#abb2bf", // Цвет текста
             fontFamily: "'Fira Code', monospace", // Шрифт
             fontSize: "0.9rem", // Размер шрифта

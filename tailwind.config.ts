@@ -41,7 +41,7 @@ module.exports = {
           "base-100": "#171717",
           "base-200": "#242424",
           "base-300": "#303030",
-          neutral: "#424242",
+          neutral: "#171717",
 
           // Состояния
           success: "#34d399",
@@ -63,6 +63,5 @@ module.exports = {
     require("@tailwindcss/forms"), // Для стилизации форм
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require("@tailwindcss/typography"), // Для типографики
-    // require("tailwindcss-animate") // При необходимости анимаций
   ],
 };
