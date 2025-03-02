@@ -54,7 +54,7 @@ date: "2025-03-01"
 
 ## Конфигурация Raspberry Pi
 
-- Открываем **PowerShell** (или **Windows Terminal**): `Win + X` выбираем **Windows PowerShell (Администратор)** или **Windows Terminal (Администратор)**, или можно в любом месте нажать правую кнопку мыши с зажатым `Shift` и выбрать **Открыть окно PowerShell здесь**.
+- Открываем **PowerShell** (или **Windows Terminal**): <kbd>Win</kbd> + <kbd>X</kbd> выбираем **Windows PowerShell (Администратор)** или **Windows Terminal (Администратор)**, или можно в любом месте нажать правую кнопку мыши с зажатым <kbd>Shift</kbd> и выбрать **Открыть окно PowerShell здесь**.
 
 - Подключаемся к **Малинке**
 

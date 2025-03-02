@@ -7,124 +7,142 @@ import rehypeRaw from "rehype-raw";
 import Image from "next/image";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import Code from "./code";
 
 const Markdown = ({ content }) => {
-  if (!content) {
-    return null;
-  }
+  if (!content) return null;
 
   const components = {
+    // Заголовки с анимацией
     h1: ({ children }) => (
-      <h1 className="text-4xl font-bold my-4 border-b pb-2">{children}</h1>
+      <h1
+        className="text-4xl font-bold my-4 border-b-2 pb-2 transition-all"
+        style={{ borderColor: "rgba(255,255,255,0.3)" }}
+      >
+        {children}
+      </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="text-3xl font-bold my-3 border-b pb-2">{children}</h2>
-    ),
-    h3: ({ children }) => (
-      <h3 className="text-2xl font-bold my-2">{children}</h3>
-    ),
-    h4: ({ children }) => (
-      <h4 className="text-xl font-bold my-2">{children}</h4>
-    ),
-    h5: ({ children }) => (
-      <h5 className="text-lg font-bold my-2">{children}</h5>
-    ),
-    h6: ({ children }) => (
-      <h6 className="text-base font-bold my-2">{children}</h6>
+      <h2
+        className="text-3xl font-bold my-3 border-b pb-1 transition-all"
+        style={{ borderColor: "rgba(255,255,255,0.2)" }}
+      >
+        {children}
+      </h2>
     ),
 
-    p: ({ children }) => {
-      const childrenArray = React.Children.toArray(children);
-      const isImageOnly =
-        childrenArray.length === 1 &&
-        React.isValidElement(childrenArray[0]) &&
-        childrenArray[0].type === "img";
-
-      if (isImageOnly) {
-        return <figure className="my-4 text-center">{children}</figure>;
-      }
-
-      return <p className="my-4 leading-relaxed text-gray-100">{children}</p>;
+    // Улучшенный код с подсветкой
+    code: ({ node, inline, className, children, ...props }) => {
+      const match = /language-(\w+)/.exec(className || "");
+      return !inline && match ? (
+        <SyntaxHighlighter
+          children={String(children).replace(/\n$/, "")}
+          style={tomorrow}
+          language={match[1]}
+          PreTag="div"
+          className="rounded-xl overflow-hidden mb-4"
+          wrapLongLines={true}
+          showLineNumbers={true}
+          showInlineLineNumbers={false}
+        />
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
     },
 
+    // Изображения с ленивой загрузкой и заглушками
     img: ({ src, alt }) => (
       <Image
         src={src}
-        alt={alt || ""}
-        width={800}
-        height={400}
-        className="rounded-lg inline-block max-w-full h-auto"
+        alt={alt || "Изображение"}
+        width={1200}
+        height={600}
+        className="rounded-2xl object-cover transition-transform hover:scale-105 mb-4"
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         loading="lazy"
+        placeholder="blur"
+        blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhESMIAAAAABJRU5ErkJggg=="
       />
     ),
-    code: Code,
 
-    ul: ({ children }) => (
-      <ul className="list-disc list-inside my-4 space-y-2">{children}</ul>
-    ),
-    ol: ({ children }) => (
-      <ol className="list-decimal list-inside my-4 space-y-2">{children}</ol>
-    ),
-    li: ({ children }) => (
-      <li className="my-1 text-gray-100 ml-4">{children}</li>
-    ),
-
+    // Ссылки с подсветкой и анимацией
     a: ({ href, children }) => (
       <a
         href={href}
-        className="text-blue-600 hover:text-blue-800 underline transition-colors duration-200"
         target="_blank"
         rel="noopener noreferrer"
+        className="text-blue-600 hover:text-blue-800 transition-colors duration-200 underline underline-offset-4"
       >
         {children}
+        <span className="sr-only">(в новой вкладке)</span>
       </a>
     ),
 
-    blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-blue-500 pl-4 my-4 italic bg-blue-50 py-2 rounded">
-        {children}
-      </blockquote>
-    ),
-
+    // Таблицы с альтернирующими строками
     table: ({ children }) => (
-      <div className="overflow-x-auto my-4">
-        <table className="min-w-full border-collapse border border-gray-100">
-          {children}
+      <div className="overflow-x-auto mb-6">
+        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+          {React.Children.map(children, (child, index) =>
+            index % 2 === 0
+              ? child
+              : React.cloneElement(child, {
+                  className: "bg-gray-50 dark:bg-gray-800",
+                })
+          )}
         </table>
       </div>
     ),
 
-    th: ({ children }) => (
-      <th className="border border-gray-300 px-4 py-2 bg-gray-100">
+    // Улучшенные цитаты
+    blockquote: ({ children }) => (
+      <blockquote className="pl-6 pr-4 py-2 my-6 bg-gray-100 dark:bg-gray-900 rounded-lg border-l-4 border-blue-500">
+        <p className="text-gray-100 italic">{children}</p>
+      </blockquote>
+    ),
+
+    // Современные списки
+    ul: ({ children }) => (
+      <ul className="list-disc list-inside pl-6 my-5 space-y-1 text-gray-100">
         {children}
-      </th>
+      </ul>
     ),
 
-    td: ({ children }) => (
-      <td className="border border-gray-100 px-4 py-2">{children}</td>
+    // Добавим поддержку задач
+    input: ({ checked }) => (
+      <input
+        type="checkbox"
+        checked={checked}
+        className="cursor-pointer accent-blue-500 transition-transform"
+      />
     ),
 
-    hr: () => <hr className="my-8 border-t border-gray-100" />,
-
-    strong: ({ children }) => (
-      <strong className="font-bold text-gray-100">{children}</strong>
+    // Прозрачные разделители
+    hr: () => (
+      <hr className="my-8 border-t border-gray-200 dark:border-gray-700 opacity-20" />
     ),
 
-    em: ({ children }) => <em className="italic text-gray-100">{children}</em>,
-
-    del: ({ children }) => (
-      <del className="line-through text-gray-100">{children}</del>
+    // Комбинации клавиш (кнопок)
+    kbd: ({ children }) => (
+      <kbd className="bg-gray-800 rounded px-2 py-0.5 text-gray-300 font-mono text-sm inline-block">
+        {children}
+      </kbd>
     ),
   };
 
   return (
-    <article className="prose max-w-none">
+    <article
+      className="prose prose-invert max-w-none dark:bg-gray-900 rounded-xl p-4 md:p-8"
+      style={{
+        color: "rgba(255,255,255,0.85)",
+        backgroundColor: "#1A202C",
+      }}
+    >
       <ReactMarkdown
         components={components}
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
+        skipHtml={false}
       >
         {content}
       </ReactMarkdown>
