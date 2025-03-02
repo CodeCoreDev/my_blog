@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import Image from "next/image";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { materialDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 
 const Markdown = ({ content }) => {
   if (!content) return null;
@@ -30,25 +30,50 @@ const Markdown = ({ content }) => {
       </h2>
     ),
 
-    // Улучшенный код с подсветкой
+    // Улучшенный код с подсветкой и кнопкой копирования
     code: ({ node, inline, className, children, ...props }) => {
       const match = /language-(\w+)/.exec(className || "");
-      return !inline && match ? (
-        <SyntaxHighlighter
-          children={String(children).replace(/\n$/, "")}
-          style={tomorrow}
-          language={match[1]}
-          PreTag="div"
-          className="rounded-xl overflow-hidden mb-4"
-          wrapLongLines={true}
-          showLineNumbers={true}
-          showInlineLineNumbers={false}
-        />
-      ) : (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      );
+      if (!inline && match) {
+        const codeString = String(children).trim();
+        return (
+          <div className="relative rounded-xl overflow-hidden mb-4 border-none shadow-none">
+            {/* Кнопка копирования */}
+            <button
+              onClick={() => navigator.clipboard.writeText(codeString)}
+              className="absolute top-2 right-2 z-10 bg-gray-900 hover:bg-gray-600 text-white font-small py-1 px-4 rounded"
+              aria-label="Копировать код"
+            >
+              Copy
+            </button>
+
+            <SyntaxHighlighter
+              language={match[1]}
+              style={materialDark}
+              PreTag="div"
+              wrapLongLines={true}
+              customStyle={{
+                padding: "3rem",
+                backgroundColor: "#282c34", // Цвет фона
+                color: "#abb2bf", // Цвет текста
+                fontFamily: "'Fira Code', monospace", // Шрифт
+                fontSize: "0.9rem", // Размер шрифта
+                border: "none", // Рамка удалена
+                borderRadius: "0.5rem", // Сглаженные углы
+                outline: "none", // Обводка удалена
+                boxShadow: "none", // Тень удалена
+              }}
+            >
+              {codeString}
+            </SyntaxHighlighter>
+          </div>
+        );
+      } else {
+        return (
+          <code className={className} {...props}>
+            {children}
+          </code>
+        );
+      }
     },
 
     // Изображения с ленивой загрузкой и заглушками
@@ -135,7 +160,7 @@ const Markdown = ({ content }) => {
       className="prose prose-invert max-w-none dark:bg-gray-900 rounded-xl p-4 md:p-8"
       style={{
         color: "rgba(255,255,255,0.85)",
-        backgroundColor: "#1A202C",
+        backgroundColor: "#282c34",
       }}
     >
       <ReactMarkdown
