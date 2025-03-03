@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import Image from "next/image";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { materialDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { tomorrow } from "react-syntax-highlighter/dist/cjs/styles/prism";
 
 // Компонент CopyButton из предыдущего примера
 const CopyButton = ({ text }) => {
@@ -77,7 +77,7 @@ const Code = ({ inline, className, children }) => {
         {/* Подсветка синтаксиса */}
         <SyntaxHighlighter
           language={match[1]}
-          style={materialDark}
+          style={tomorrow}
           PreTag="div"
           wrapLongLines={true}
           customStyle={{
@@ -178,11 +178,11 @@ const Markdown = ({ content }) => {
     ),
 
     // Современные списки
-    ul: ({ children }) => (
-      <ul className="list-disc list-inside pl-6 my-5 space-y-1 text-gray-100">
-        {children}
-      </ul>
-    ),
+   ul: ({ children }) => (
+  <ul className="list-disc list-outside pl-6 my-5 space-y-1 text-gray-100">
+    {children}
+  </ul>
+),
 
     // Добавим поддержку задач
     input: ({ checked }) => (
