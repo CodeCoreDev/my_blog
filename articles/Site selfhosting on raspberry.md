@@ -233,6 +233,7 @@ date: "2025-03-01"
   pm2 startup
   sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u admin --hp /home/admin
   ```
+
 - Перезагружаем **Raspberry Pi**:
 
   ```powershell
@@ -243,5 +244,205 @@ date: "2025-03-01"
 
   ## Автоматический деплой из GitHub
 
-  - Теперь давайте дополним наш сервер функцией автоматического деплой из GitHub. Для этого будем использовать Web перехватчики, или Web Hooks.
-  - Веб хуки это способ автоматического обмена данными между приложениями. Они работают по принципу «событие → реакция»: когда в одной системе происходит определенное событие (например, оплата заказа, коммит в репозитории или новое сообщение), она отправляет HTTP-запрос (чаще POST) на заранее указанный URL (вебхук) другой системы. Это позволяет мгновенно обмениваться информацией без постоянного опроса серверов.
+- Теперь давайте дополним наш сервер функцией автоматического деплоя из GitHub. Для этого будем использовать Web перехватчики, или так называемые веб хуки.
+  
+- Веб хуки это способ автоматического обмена данными между приложениями. Они работают по принципу «событие → реакция»: когда в одной системе происходит определенное событие (например, оплата заказа, коммит в репозитории или новое сообщение), она отправляет HTTP-запрос (чаще POST) на заранее указанный URL (вебхук) другой системы, что позволяет мгновенно обмениваться информацией без постоянного опроса серверов.
+  
+- Для того чтобы настроить вебхук нужно зайти в репозиторий проекта, который мы хотим деплоить с гитхаба (в нашем случае **my_blog**), далее идем **Settigs - Webhooks - Add webhook**, в поле **Payload URL** вводим URL и порт нашего сервера, через который будут приходить запросы, например **http://IP:Port/webhook** (IP -внешний адрес Rasзberry Pi, Port - любой порт Raspberry, доступ к которому нужно будет открыть в вашем роутере, например 3030). В поле **Content type** выбираем **Appication/JSON**, в поле **Secret** вводим любой секретный ключ, в поле **Which events would you like to trigger this webhook?** выбираем **Push events**. После чего нажимаем **Add webhook**.
+  
+- На этом настройка репозитория Гитхаба завершена, переходим к нашей Raspberry.
+  
+- Коннектимся к Raspberry через SSH: `ssh user@ip`
+  
+- Создаем директорию webhook-server:
+  ```powershell
+  mkdir webhook-server
+  ```
+
+- Переходим в директорию:
+
+  ```powershell
+  cd webhook-server
+  ```
+
+- Создаем файл автоматического обновления приложения из репозитория **update_my_blog.sh** (Имя можете выбрать любое):
+
+  ```powershell
+  nano update_my_blog.sh
+  ```
+
+- В этом файле вводим следующий код:
+
+  ```powershell
+  #!/bin/bash
+
+  # Конфигурация
+  APP_DIR="/home/admin/my_blog"
+  LOG_FILE="/home/admin/webhook-server/deploy.log"
+  PM2_APP_NAME="my_blog"
+  TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+  # Логирование
+  exec > >(tee -a "${LOG_FILE}") 2>&1
+
+  echo "========================================"
+  echo "[${TIMESTAMP}] Starting deployment"
+  echo "Working directory: ${APP_DIR}"
+  echo "Node version: $(node -v)"
+  echo "NPM version: $(npm -v)"
+  echo "Git version: $(git --version)"
+  echo "User: $(whoami)"
+
+  # Переход в директорию
+  echo "[1/5] Entering application directory..."
+  cd "${APP_DIR}" || {
+    echo "FAILED: Can't enter directory ${APP_DIR}"
+    exit 1
+  }
+
+  # Обновление кода
+  echo "[2/5] Pulling latest changes from Git..."
+  git fetch --all
+  git pull origin master || {
+    echo "FAILED: Git pull error"
+    exit 1
+  }
+  echo "Current commit: $(git log -1 --pretty=%B)"
+
+  # Установка зависимостей
+  echo "[3/5] Installing dependencies..."
+  npm ci --production || {
+    echo "FAILED: npm install error"
+    exit 1
+  }
+
+  # Сборка проекта
+  echo "[4/5] Building application..."
+  npm run build || {
+    echo "FAILED: Build error"
+    exit 1
+  }
+
+  # Перезапуск PM2
+  echo "[5/5] Restarting PM2..."
+  pm2 restart "${PM2_APP_NAME}" --update-env || {
+    echo "FAILED: PM2 restart error"
+    exit 1
+  }
+
+  echo "Deployment completed successfully!"
+  echo "PM2 status:"
+  pm2 list
+  ```
+
+- Этот файл открывает каталог с проектом `/home/admin/my_blog`, обновляет содержимое из удаленного репозитория, устанавливает зависимости, собирает приложение, перезапускает PM2 и выводит результаты в лог.
+
+- Проверяем работоспособность скрипта:
+
+  ```powershell
+  sh update_my_blog.sh
+  ```
+
+- Если все нормально, должно начаться обновление приложения. Теперь нам нужно связать скрипт обновления с вебхуком от GitHub. Для этого необходимо написать небольшой сервер, который будет слушать POST-запросы от GitHub и запускать скрипт обновления.
+
+- Для этого в директории `webhook-server` создадим файл `webhook-server.js`:
+
+  ```powershell
+  nano webhook-server.js
+  ```
+
+- В этом файле вводим следующий код:
+
+  ```javascript
+  const express = require("express");
+  const crypto = require("crypto");
+  const { exec } = require("child_process");
+  const fs = require("fs");
+  const app = express();
+
+  const SECRET = "YOUR_SECRET_KEY";
+  const PORT = 3030;
+  const LOG_FILE = "/home/admin/webhook-server/deploy.log";
+
+  // Логирование в файл
+  function logToFile(message) {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(LOG_FILE, logMessage);
+  }
+
+  app.use(express.json());
+
+  app.post("/webhook", (req, res) => {
+    const signature = req.headers["x-hub-signature-256"];
+    const event = req.headers["x-github-event"];
+    const ip = req.ip;
+
+    logToFile(`New request from IP: ${ip} | Event: ${event}`);
+
+    // Проверка подписи
+    const hmac = crypto.createHmac("sha256", SECRET);
+    const digest =
+      "sha256=" + hmac.update(JSON.stringify(req.body)).digest("hex");
+
+    if (signature !== digest) {
+      logToFile("INVALID SIGNATURE!");
+      return res.status(403).send("Forbidden");
+    }
+
+    if (event === "push") {
+      logToFile("Valid push event received. Starting update...");
+
+      const child = exec(
+        "/bin/bash /home/admin/webhook-server/update_my_blog.sh",
+        { env: process.env },
+        (err, stdout, stderr) => {
+          if (err) {
+            logToFile(`EXEC ERROR: ${err.message}`);
+            logToFile(`STDERR: ${stderr}`);
+            return res.status(500).send("Update error");
+          }
+          logToFile(`Update successful. Output: ${stdout}`);
+          res.status(200).send("OK");
+        }
+      );
+
+      // Логирование в реальном времени
+      child.stdout.on("data", (data) => {
+        logToFile(`STDOUT: ${data.toString().trim()}`);
+      });
+
+      child.stderr.on("data", (data) => {
+        logToFile(`STDERR: ${data.toString().trim()}`);
+      });
+    } else {
+      logToFile(`Ignored event: ${event}`);
+      res.status(200).send("Ignored event");
+    }
+  });
+
+  app.listen(PORT, () => {
+    logToFile(`Server started on port ${PORT}`);
+    console.log(`Server running on port number ${PORT}`);
+  });
+  ```
+
+- Этот код реализует вебхук-сервер на Express.js для автоматического обновления приложения при пуше в GitHub-репозиторий. Сервер прослушивает порт 3030. При получении POST на адрес `/webhook` извлекает подпись заголовка `x-hub-signature-256`, тип события - Github `x-github-event` и IP-адрес отправителя `req.ip`. Далее генерируется HMAC-SHA256 на основе тела запроса и секрета. Если подпись верна, обрабатывает событие `push` и запускает скрипт обновления. Если нет, то возвращает 403. Если событие не `push`, то возвращает 200 и сообщение о том, что событие проигнорировано. Все события логируются в лог-файл `/home/admin/webhook-server/deploy.log`. Если скрипт обновления завершается с ошибкой, то возвращает 500 и сообщение об ошибке.
+
+- Для управления работой сервера вебхуков используем уже привычный **PM2**:
+
+  ```powershell
+  pm2 start webhook-server.js
+  pm2 save
+  pm2 startup
+  ```
+
+- Теперь можно проверить работоспособность сервера, для чего вносим какие нибудь изменения в нашем проекте и отправояем push в репозиторий. Работу скрипта обновления можно проветить в реальном времени, выполнив на Raspberry команду:
+
+  ```powershell
+  tail -f /home/admin/webhook-server/deploy.log
+  ```
+
+  Если все нормально, то в консоли можно наблюдать процесс обновления приложения.
+
+  На этом пока все. Good luck!
