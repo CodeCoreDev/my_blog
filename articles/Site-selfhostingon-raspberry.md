@@ -158,36 +158,23 @@ date: "2025-04-27"
   и скопировать в него следующее содержимое:
 
   ```nginx
-  # Блок для обработки запросов по IP
+  # Блок для обработки всех запросов (IP + домен)
   server {
-      listen 80 default_server;  # Обработка всех запросов по умолчанию
-      server_name your_ip_address;
-      location / {
-          proxy_pass http://127.0.0.1:3000;
-          proxy_http_version 1.1;
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection 'upgrade';
-          proxy_set_header Host $host;
-          proxy_cache_bypass $http_upgrade;
-      }
-  }
+    listen 80 default_server;
+    server_name xxx.xxx.xxx.xxx some-domain.ru www.some-domain.ru;
 
-  # Блок для обработки запросов с доменного имени
-  server {
-      listen 80;
-      server_name some-domain.ru www.some-domain.ru;
-      location / {
-          proxy_pass http://127.0.0.1:3000;
-          proxy_http_version 1.1;
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection 'upgrade';
-          proxy_set_header Host $host;
-          proxy_cache_bypass $http_upgrade;
-      }
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
   }
   ```
 
-  вместо **your_ip_address** нужно ввести внешний IP-адрес вашего Raspberry Pi, вместо **some-domain.ru** - доменное имя, полученное на **РЕГ.РУ**, **3000** это порт, на котором работает ваш веб-сервер (номер порта отображается в консоли после запуска `npm start`)
+  вместо **xxx.xxx.xxx.xxx** нужно ввести внешний IP-адрес вашего Raspberry Pi, вместо **some-domain.ru** - доменное имя, полученное на **РЕГ.РУ**, **3000** это порт, на котором работает ваш веб-сервер (номер порта отображается в консоли после запуска `npm start`)
 
 - Далее создаем символическую ссылку (это аналог ярлыка в Windows) на наш конфигурационный файл:
 
@@ -233,7 +220,6 @@ date: "2025-04-27"
   ```powershell
   pm2 save
   pm2 startup
-  sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u admin --hp /home/admin
   ```
 
 - Перезагружаем **Raspberry Pi**:
@@ -343,6 +329,12 @@ date: "2025-04-27"
 
   ```powershell
   sh update_my_blog.sh
+  ```
+  
+или
+  
+  ```powershell
+  bash update_my_blog.sh
   ```
 
 - Если все нормально, должно начаться обновление приложения. Теперь нам нужно связать скрипт обновления с вебхуком от GitHub. Для этого необходимо написать небольшой сервер, который будет слушать POST-запросы от GitHub и запускать скрипт обновления.
