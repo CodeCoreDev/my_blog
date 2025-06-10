@@ -355,7 +355,7 @@ date: "2025-04-27"
   const app = express();
 
   // Конфигурация
-  const SECRET = "YOUR_SECRET_FROM_GITHUB"; // ← Замените на GitHub webhook secret
+  const SECRET = "hFRIgEKXXy"; // ← Убедитесь, что совпадает с GitHub webhook secret
   const PORT = 3030;
   const LOG_FILE = "/home/user/webhook-server/deploy.log";
 
@@ -370,8 +370,16 @@ date: "2025-04-27"
     }
   }
 
-  // Middleware для парсинга JSON
-  app.use(express.json({ limit: "10mb" }));
+  // Middleware для парсинга JSON с сохранением исходного тела
+  const rawBodyBuffer = (req, res, buf, encoding) => {
+    req.rawBody = buf.toString(); // Сохраняем raw body для проверки подписи
+  };
+  app.use(
+    express.json({
+      limit: "10mb",
+      verify: rawBodyBuffer,
+    })
+  );
 
   // Обработчик вебхука
   app.post("/webhook", (req, res) => {
@@ -382,17 +390,23 @@ date: "2025-04-27"
     // Логируем базовую информацию
     logToFile(`📡 New request from IP: ${ip}`);
     logToFile(`📌 Event type: ${event}`);
-    logToFile(`📥 Request body: ${JSON.stringify(req.body)}`);
+
+    // Логируем тело запроса (raw и parsed)
+    if (req.rawBody) {
+      logToFile(`📥 Raw request body: ${req.rawBody}`);
+    } else {
+      logToFile(`❌ No raw request body received.`);
+    }
 
     // Проверяем наличие тела запроса
-    if (!req.body || Object.keys(req.body).length === 0) {
-      logToFile("❌ Empty request body received.");
+    if (!req.rawBody || req.rawBody.trim() === "") {
+      logToFile("❌ Empty or invalid request body received.");
       return res.status(400).send("Bad Request");
     }
 
     // Проверка подписи
     const hmac = crypto.createHmac("sha256", SECRET);
-    const payload = JSON.stringify(req.body);
+    const payload = req.rawBody; // Используем rawBody для точной проверки
     const digest = "sha256=" + hmac.update(payload).digest("hex");
 
     logToFile(`🔐 Calculated digest: ${digest}`);
