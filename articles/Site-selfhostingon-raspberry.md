@@ -331,11 +331,11 @@ date: "2025-04-27"
   sh update_my_blog.sh
   ```
 
-или
+- или
 
-```powershell
-bash update_my_blog.sh
-```
+  ```powershell
+  bash update_my_blog.sh
+  ```
 
 - Если все нормально, должно начаться обновление приложения. Теперь нам нужно связать скрипт обновления с вебхуком от GitHub. Для этого необходимо написать небольшой сервер, который будет слушать POST-запросы от GitHub и запускать скрипт обновления.
 
@@ -354,54 +354,76 @@ bash update_my_blog.sh
   const fs = require("fs");
   const app = express();
 
-  const SECRET = "YOUR_SECRET_KEY";
+  // Конфигурация
+  const SECRET = "YOUR_SECRET_FROM_GITHUB"; // ← Замените на GitHub webhook secret
   const PORT = 3030;
-  const LOG_FILE = "/home/admin/webhook-server/deploy.log";
+  const LOG_FILE = "/home/user/webhook-server/deploy.log";
 
   // Логирование в файл
   function logToFile(message) {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}\n`;
-    fs.appendFileSync(LOG_FILE, logMessage);
+    try {
+      fs.appendFileSync(LOG_FILE, logMessage);
+    } catch (err) {
+      console.error("Failed to write log:", err.message);
+    }
   }
 
-  app.use(express.json());
+  // Middleware для парсинга JSON
+  app.use(express.json({ limit: "10mb" }));
 
+  // Обработчик вебхука
   app.post("/webhook", (req, res) => {
     const signature = req.headers["x-hub-signature-256"];
     const event = req.headers["x-github-event"];
     const ip = req.ip;
 
-    logToFile(`New request from IP: ${ip} | Event: ${event}`);
+    // Логируем базовую информацию
+    logToFile(`📡 New request from IP: ${ip}`);
+    logToFile(`📌 Event type: ${event}`);
+    logToFile(`📥 Request body: ${JSON.stringify(req.body)}`);
+
+    // Проверяем наличие тела запроса
+    if (!req.body || Object.keys(req.body).length === 0) {
+      logToFile("❌ Empty request body received.");
+      return res.status(400).send("Bad Request");
+    }
 
     // Проверка подписи
     const hmac = crypto.createHmac("sha256", SECRET);
-    const digest =
-      "sha256=" + hmac.update(JSON.stringify(req.body)).digest("hex");
+    const payload = JSON.stringify(req.body);
+    const digest = "sha256=" + hmac.update(payload).digest("hex");
+
+    logToFile(`🔐 Calculated digest: ${digest}`);
+    logToFile(`🔐 Received signature: ${signature}`);
+    logToFile(`✅ Signature match: ${signature === digest ? "YES" : "NO"}`);
 
     if (signature !== digest) {
-      logToFile("INVALID SIGNATURE!");
+      logToFile("🚫 INVALID SIGNATURE!");
       return res.status(403).send("Forbidden");
     }
 
+    // Обрабатываем только push-события
     if (event === "push") {
-      logToFile("Valid push event received. Starting update...");
+      logToFile("🚀 Valid push event received. Starting update...");
 
+      const scriptPath = "/home/user/webhook-server/update_my_blog.sh";
       const child = exec(
-        "/bin/bash /home/admin/webhook-server/update_my_blog.sh",
+        `/bin/bash ${scriptPath}`,
         { env: process.env },
         (err, stdout, stderr) => {
           if (err) {
-            logToFile(`EXEC ERROR: ${err.message}`);
-            logToFile(`STDERR: ${stderr}`);
+            logToFile(`❌ EXEC ERROR: ${err.message}`);
+            logToFile(`🔴 STDERR: ${stderr}`);
             return res.status(500).send("Update error");
           }
-          logToFile(`Update successful. Output: ${stdout}`);
+          logToFile(`✅ Update successful. Output: ${stdout}`);
           res.status(200).send("OK");
         }
       );
 
-      // Логирование в реальном времени
+      // Логируем вывод скрипта в реальном времени
       child.stdout.on("data", (data) => {
         logToFile(`STDOUT: ${data.toString().trim()}`);
       });
@@ -410,26 +432,27 @@ bash update_my_blog.sh
         logToFile(`STDERR: ${data.toString().trim()}`);
       });
     } else {
-      logToFile(`Ignored event: ${event}`);
+      logToFile(`⚠️ Ignored event: ${event}`);
       res.status(200).send("Ignored event");
     }
   });
 
+  // Запуск сервера
   app.listen(PORT, () => {
-    logToFile(`Server started on port ${PORT}`);
-    console.log(`Server running on port number ${PORT}`);
+    logToFile(`🟢 Server started on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
   ```
 
-- Вместо `admin` вставляем актуальное имя пользователя Raspberry, а в `YOUR_SECRET_KEY` указываем секретный ключ, который вы указали в настройках репозитория GitHub.
+- Вместо `admin` вставляем актуальное имя пользователя Raspberry, а в `YOUR_SECRET_FROM_GITHUB` указываем секретный ключ, который вы указали в настройках репозитория GitHub.
 
 - Этот код реализует вебхук-сервер на Express.js для автоматического обновления приложения при пуше в GitHub-репозиторий. Сервер прослушивает порт 3030, который вы указали в настройках WebHook репозитория GitHub. В случае, если вы указали другой порт то измените его значение на актуальный.
 - Код работает примерно следующим образом - при получении POST на адрес `/webhook` извлекает подпись заголовка `x-hub-signature-256`, тип события - Github `x-github-event` и IP-адрес отправителя `req.ip`. Далее генерируется HMAC-SHA256 на основе тела запроса и секрета. Если подпись верна, обрабатывает событие `push` и запускает скрипт обновления. Если нет, то возвращает 403. Если событие не `push`, то возвращает 200 и сообщение о том, что событие проигнорировано. Все события логируются в лог-файл `/home/admin/webhook-server/deploy.log`. Если скрипт обновления завершается с ошибкой, то возвращает 500 и сообщение об ошибке.
 - Для работы вебсервера нужен **express** :
 
-  ```powershell
-  npm install express
-  ```
+```powershell
+npm install express
+```
 
 - Для управления работой сервера вебхуков используем уже привычный **PM2**:
 
